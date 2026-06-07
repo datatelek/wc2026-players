@@ -41,7 +41,7 @@ h1{font-family:var(--font-d);font-weight:700;font-size:clamp(30px,5vw,46px);line
 
 /* controls */
 .controls{position:sticky;top:0;z-index:30;background:rgba(12,20,16,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:16px 0}
-.cgrid{display:grid;grid-template-columns:1.6fr repeat(4,1fr) auto;gap:10px;align-items:end}
+.cgrid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr 1fr auto;gap:10px;align-items:end}
 .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-bottom:6px;font-weight:600}
 .field input,.field select{width:100%;background:var(--surface);border:1px solid var(--line);color:var(--ink);
   padding:10px 12px;border-radius:9px;font-family:var(--font-b);font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s}
@@ -114,7 +114,7 @@ footer a:hover{color:var(--accent)}
       <div class="kicker">FIFA World Cup 2026</div>
     </div>
     <h1>База игроков чемпионата мира&nbsp;2026</h1>
-    <p class="sub">Все футболисты, вызванные в составы сборных. Фильтруйте по <b>сборной</b>, <b>клубу</b>, <b>стране клуба</b>, <b>лиге</b> и <b>позиции</b> — или ищите по имени.</p>
+    <p class="sub">Все футболисты, вызванные в составы сборных. Фильтры каскадные: <b>страна клуба</b> → <b>лига</b> → <b>клуб</b>, плюс <b>сборная</b> и <b>позиция</b> — или ищите по имени.</p>
     <div class="stats" id="stats"></div>
   </div>
 </header>
@@ -122,11 +122,12 @@ footer a:hover{color:var(--accent)}
 <div class="controls">
   <div class="wrap">
     <div class="cgrid">
-      <div class="field search"><label>Поиск</label><input id="q" type="text" placeholder="Имя игрока или клуб…" autocomplete="off"></div>
+      <div class="field search"><label>Поиск</label><input id="q" type="text" placeholder="Имя игрока…" autocomplete="off"></div>
       <div class="field"><label>Сборная</label><select id="fTeam"></select></div>
       <div class="field"><label>Позиция</label><select id="fPos"></select></div>
-      <div class="field"><label>Лига</label><select id="fLeague"></select></div>
       <div class="field"><label>Страна клуба</label><select id="fCC"></select></div>
+      <div class="field"><label>Лига</label><select id="fLeague"></select></div>
+      <div class="field"><label>Клуб</label><select id="fClub"></select></div>
       <button class="btn-reset" id="reset">Сбросить</button>
     </div>
   </div>
@@ -176,15 +177,18 @@ const PAGE=80;
 let shown=PAGE, sortKey='t', sortDir=1;
 
 const $=id=>document.getElementById(id);
-const uniq=k=>[...new Set(PLAYERS.map(p=>p[k]))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'ru'));
+const sortRu=arr=>arr.sort((a,b)=>a.localeCompare(b,'ru'));
+const uniq=(rows,k)=>sortRu([...new Set(rows.map(p=>p[k]))].filter(Boolean));
 
 function fillSelect(el,arr,label){
+  const prev=el.value;
   el.innerHTML='<option value="">'+label+'</option>'+arr.map(v=>`<option>${v}</option>`).join('');
+  // сохранить выбор, если он всё ещё доступен
+  if(prev && arr.includes(prev)) el.value=prev; else el.value='';
 }
-fillSelect($('fTeam'),uniq('t'),'Все сборные');
+
+fillSelect($('fTeam'),uniq(PLAYERS,'t'),'Все сборные');
 fillSelect($('fPos'),['Вратарь','Защитник','Полузащитник','Нападающий'],'Все позиции');
-fillSelect($('fLeague'),uniq('l'),'Все лиги');
-fillSelect($('fCC'),uniq('cc'),'Все страны');
 
 // stats
 const nTeams=new Set(PLAYERS.map(p=>p.t)).size;
@@ -194,21 +198,40 @@ $('stats').innerHTML=[
   ['v',PLAYERS.length,'игроков'],['v',nTeams,'сборных'],['v',nClubs,'клубов'],['v',nLeagues,'лиг']
 ].map(([,v,k])=>`<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
 
+// Каскад: Страна клуба → Лига → Клуб.
+// Каждый дочерний список показывает только варианты, совместимые с выбором выше.
+function rebuildCascade(){
+  const cc=$('fCC').value, lg=$('fLeague').value;
+  // Страна клуба — всегда полный список
+  fillSelect($('fCC'),uniq(PLAYERS,'cc'),'Все страны');
+  // Лиги — зависят от страны
+  let lpool=PLAYERS;
+  if(cc) lpool=lpool.filter(p=>p.cc===cc);
+  fillSelect($('fLeague'),uniq(lpool,'l'),'Все лиги');
+  // Клубы — зависят от страны и лиги
+  let cpool=PLAYERS;
+  if(cc) cpool=cpool.filter(p=>p.cc===cc);
+  const lg2=$('fLeague').value; // могла сброситься
+  if(lg2) cpool=cpool.filter(p=>p.l===lg2);
+  fillSelect($('fClub'),uniq(cpool,'c'),'Все клубы');
+}
+
 function getFilters(){
-  return {q:$('q').value.trim().toLowerCase(),t:$('fTeam').value,p:$('fPos').value,l:$('fLeague').value,cc:$('fCC').value};
+  return {q:$('q').value.trim().toLowerCase(),t:$('fTeam').value,p:$('fPos').value,
+          l:$('fLeague').value,cc:$('fCC').value,c:$('fClub').value};
 }
 function apply(){
+  rebuildCascade();
   const f=getFilters();
   let r=PLAYERS.filter(p=>
-    (!f.t||p.t===f.t)&&(!f.p||p.p===f.p)&&(!f.l||p.l===f.l)&&(!f.cc||p.cc===f.cc)&&
-    (!f.q||p.n.toLowerCase().includes(f.q)||p.c.toLowerCase().includes(f.q))
+    (!f.t||p.t===f.t)&&(!f.p||p.p===f.p)&&(!f.l||p.l===f.l)&&(!f.cc||p.cc===f.cc)&&(!f.c||p.c===f.c)&&
+    (!f.q||p.n.toLowerCase().includes(f.q))
   );
   r.sort((a,b)=>{
     let x,y;
     if(sortKey==='p'){x=POS_ORDER[a.p];y=POS_ORDER[b.p];}
     else{x=a[sortKey];y=b[sortKey];}
     if(x<y)return -1*sortDir; if(x>y)return 1*sortDir;
-    // secondary sort by team then pos
     if(a.t!==b.t)return a.t.localeCompare(b.t,'ru');
     return POS_ORDER[a.p]-POS_ORDER[b.p];
   });
@@ -236,20 +259,33 @@ function renderChips(f){
   const items=[];
   if(f.t)items.push(['Сборная',f.t,'fTeam']);
   if(f.p)items.push(['Позиция',f.p,'fPos']);
-  if(f.l)items.push(['Лига',f.l,'fLeague']);
   if(f.cc)items.push(['Страна',f.cc,'fCC']);
+  if(f.l)items.push(['Лига',f.l,'fLeague']);
+  if(f.c)items.push(['Клуб',f.c,'fClub']);
   if(f.q)items.push(['Поиск',f.q,'q']);
   $('chips').innerHTML=items.map(([k,v,id])=>
     `<span class="chip">${k}: <b>${v}</b><span data-clear="${id}">×</span></span>`).join('');
   document.querySelectorAll('[data-clear]').forEach(el=>el.onclick=()=>{
-    const t=$(el.dataset.clear); t.value=''; shown=PAGE; apply();
+    clearField(el.dataset.clear);
   });
 }
 
-['q','fTeam','fPos','fLeague','fCC'].forEach(id=>{
-  $(id).addEventListener('input',()=>{shown=PAGE;apply();});
-});
-$('reset').onclick=()=>{['q','fTeam','fPos','fLeague','fCC'].forEach(id=>$(id).value='');shown=PAGE;apply();};
+// Сброс поля с учётом каскада: сброс родителя очищает дочерние.
+function clearField(id){
+  $(id).value='';
+  if(id==='fCC'){$('fLeague').value='';$('fClub').value='';}
+  if(id==='fLeague'){$('fClub').value='';}
+  shown=PAGE; apply();
+}
+
+$('q').addEventListener('input',()=>{shown=PAGE;apply();});
+$('fTeam').addEventListener('change',()=>{shown=PAGE;apply();});
+$('fPos').addEventListener('change',()=>{shown=PAGE;apply();});
+// Каскад: смена страны сбрасывает лигу и клуб; смена лиги сбрасывает клуб
+$('fCC').addEventListener('change',()=>{$('fLeague').value='';$('fClub').value='';shown=PAGE;apply();});
+$('fLeague').addEventListener('change',()=>{$('fClub').value='';shown=PAGE;apply();});
+$('fClub').addEventListener('change',()=>{shown=PAGE;apply();});
+$('reset').onclick=()=>{['q','fTeam','fPos','fLeague','fCC','fClub'].forEach(id=>$(id).value='');shown=PAGE;apply();};
 $('moreBtn').onclick=()=>{shown+=PAGE;apply();};
 document.querySelectorAll('thead th').forEach(th=>{
   th.onclick=()=>{const k=th.dataset.k; if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=1;}
