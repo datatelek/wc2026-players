@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ЧМ-2026 · База игроков</title>
+<meta name="description" content="Интерактивная база всех игроков, вызванных на Чемпионат мира 2026. Фильтры по сборной, клубу, лиге и позиции." />
+<link href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@500,600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0c1410; --surface:#121d17; --surface2:#172620; --line:#22332b;
+  --ink:#eaf2ed; --muted:#8aa094; --faint:#5e7268;
+  --accent:#21c277; --accent-dim:#188f58; --gold:#e8b84b;
+  --r:12px; --maxw:1180px;
+  --font-d:'Clash Grotesk','Arial Narrow',sans-serif;
+  --font-b:'Satoshi','Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+a{color:inherit}
+
+/* header */
+header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0e1812,#0c1410);position:relative;overflow:hidden}
+header::before{content:"";position:absolute;inset:0;background:
+  repeating-linear-gradient(90deg,transparent 0 78px,rgba(33,194,119,.04) 78px 80px);pointer-events:none}
+.hd{padding:38px 0 30px;position:relative}
+.brand{display:flex;align-items:center;gap:13px;margin-bottom:16px}
+.logo{flex:none}
+.kicker{font-family:var(--font-d);font-weight:600;letter-spacing:.16em;text-transform:uppercase;font-size:12px;color:var(--accent)}
+h1{font-family:var(--font-d);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1.04;letter-spacing:-.01em}
+.sub{color:var(--muted);margin-top:10px;max-width:640px;font-size:15px}
+.sub b{color:var(--ink);font-weight:700}
+
+/* stats strip */
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;min-width:120px}
+.stat .v{font-family:var(--font-d);font-weight:700;font-size:24px;line-height:1}
+.stat .k{color:var(--faint);font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+
+/* controls */
+.controls{position:sticky;top:0;z-index:30;background:rgba(12,20,16,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:16px 0}
+.cgrid{display:grid;grid-template-columns:1.6fr repeat(4,1fr) auto;gap:10px;align-items:end}
+.field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-bottom:6px;font-weight:600}
+.field input,.field select{width:100%;background:var(--surface);border:1px solid var(--line);color:var(--ink);
+  padding:10px 12px;border-radius:9px;font-family:var(--font-b);font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s}
+.field input:focus,.field select:focus{border-color:var(--accent-dim);box-shadow:0 0 0 3px rgba(33,194,119,.13)}
+.field select{appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238aa094' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
+.btn-reset{background:var(--surface2);border:1px solid var(--line);color:var(--muted);padding:10px 16px;border-radius:9px;
+  font-family:var(--font-b);font-size:14px;font-weight:500;cursor:pointer;transition:.15s;white-space:nowrap}
+.btn-reset:hover{border-color:var(--accent-dim);color:var(--ink)}
+
+/* count + chips */
+.meta{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 0 10px;flex-wrap:wrap}
+.count{color:var(--muted);font-size:14px}
+.count b{font-family:var(--font-d);color:var(--accent);font-size:18px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--surface);border:1px solid var(--line);color:var(--muted);font-size:12px;
+  padding:5px 9px 5px 11px;border-radius:20px;display:inline-flex;gap:7px;align-items:center}
+.chip b{color:var(--ink);font-weight:600}
+.chip span{cursor:pointer;color:var(--faint);font-size:14px;line-height:1}
+.chip span:hover{color:var(--accent)}
+
+/* table */
+.tablecard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:40px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{position:sticky;top:0;background:var(--surface2);text-align:left;padding:13px 16px;font-size:11px;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;border-bottom:1px solid var(--line)}
+thead th:hover{color:var(--ink)}
+thead th .ar{color:var(--accent);margin-left:4px;font-size:10px}
+tbody td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+.pname{font-weight:600}
+.flag{color:var(--muted)}
+.pos{display:inline-block;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.pos.gk{background:rgba(232,184,75,.14);color:var(--gold)}
+.pos.df{background:rgba(91,140,255,.14);color:#8fb0ff}
+.pos.mf{background:rgba(33,194,119,.14);color:var(--accent)}
+.pos.fw{background:rgba(255,107,107,.14);color:#ff9a9a}
+.grp{font-family:var(--font-d);font-weight:600;color:var(--faint);font-size:13px}
+.empty{padding:50px 20px;text-align:center;color:var(--muted)}
+.empty .big{font-family:var(--font-d);font-size:20px;color:var(--ink);margin-bottom:6px}
+.more{padding:16px;text-align:center;border-top:1px solid var(--line)}
+.more button{background:transparent;border:1px solid var(--line);color:var(--muted);padding:9px 20px;border-radius:9px;cursor:pointer;font-family:var(--font-b);font-size:14px}
+.more button:hover{border-color:var(--accent-dim);color:var(--ink)}
+
+footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--faint);font-size:13px}
+footer a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--line)}
+footer a:hover{color:var(--accent)}
+
+@media(max-width:880px){
+  .cgrid{grid-template-columns:1fr 1fr}
+  .field.search{grid-column:1/-1}
+  .btn-reset{grid-column:1/-1}
+  thead th.hide,tbody td.hide{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hd">
+    <div class="brand">
+      <svg class="logo" width="38" height="38" viewBox="0 0 38 38" fill="none" aria-label="Логотип">
+        <circle cx="19" cy="19" r="17" stroke="var(--accent)" stroke-width="2"/>
+        <path d="M19 8l3.2 2.3-1.2 3.7h-4L15.8 10.3 19 8z" fill="var(--ink)"/>
+        <path d="M19 14.6l3.9 2.8-1.5 4.6h-4.8L15.1 17.4 19 14.6z" stroke="var(--ink)" stroke-width="1.4" fill="none"/>
+        <path d="M9.5 16.5l3 1.2M28.5 16.5l-3 1.2M13 27l1.5-3M25 27l-1.5-3" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <div class="kicker">FIFA World Cup 2026</div>
+    </div>
+    <h1>База игроков чемпионата мира&nbsp;2026</h1>
+    <p class="sub">Все футболисты, вызванные в составы сборных. Фильтруйте по <b>сборной</b>, <b>клубу</b>, <b>стране клуба</b>, <b>лиге</b> и <b>позиции</b> — или ищите по имени.</p>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="wrap">
+    <div class="cgrid">
+      <div class="field search"><label>Поиск</label><input id="q" type="text" placeholder="Имя игрока или клуб…" autocomplete="off"></div>
+      <div class="field"><label>Сборная</label><select id="fTeam"></select></div>
+      <div class="field"><label>Позиция</label><select id="fPos"></select></div>
+      <div class="field"><label>Лига</label><select id="fLeague"></select></div>
+      <div class="field"><label>Страна клуба</label><select id="fCC"></select></div>
+      <button class="btn-reset" id="reset">Сбросить</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="meta">
+    <div class="count"><b id="cnt">0</b> игроков</div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="tablecard">
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th data-k="n">Игрок</th>
+          <th data-k="t">Сборная</th>
+          <th data-k="g" class="hide">Гр.</th>
+          <th data-k="p">Позиция</th>
+          <th data-k="c">Клуб</th>
+          <th data-k="cc" class="hide">Страна клуба</th>
+          <th data-k="l" class="hide">Лига</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="more" id="more" style="display:none"><button id="moreBtn">Показать ещё</button></div>
+    <div class="empty" id="empty" style="display:none">
+      <div class="big">Ничего не найдено</div>
+      <div>Попробуйте изменить фильтры или сбросить их.</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    Источник данных: <a href="https://www.championat.com/football/article-6475914-sostavy-sbornyh-na-chempionat-mira-2026-zayavki-na-chm-2026-polnyj-spisok-igrokov-kto-poedet-na-chm-kto-ne-popal-v-spiski.html" target="_blank" rel="noopener">Championat.com</a> · составы на 02.06.2026.
+    Названия клубов и лиг нормализованы. Сборная России в турнире не участвует — российские клубы представлены легионерами.
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+const POS_CLASS={'Вратарь':'gk','Защитник':'df','Полузащитник':'mf','Нападающий':'fw'};
+const POS_ORDER={'Вратарь':0,'Защитник':1,'Полузащитник':2,'Нападающий':3};
+const PAGE=80;
+let shown=PAGE, sortKey='t', sortDir=1;
+
+const $=id=>document.getElementById(id);
+const uniq=k=>[...new Set(PLAYERS.map(p=>p[k]))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'ru'));
+
+function fillSelect(el,arr,label){
+  el.innerHTML='<option value="">'+label+'</option>'+arr.map(v=>`<option>${v}</option>`).join('');
+}
+fillSelect($('fTeam'),uniq('t'),'Все сборные');
+fillSelect($('fPos'),['Вратарь','Защитник','Полузащитник','Нападающий'],'Все позиции');
+fillSelect($('fLeague'),uniq('l'),'Все лиги');
+fillSelect($('fCC'),uniq('cc'),'Все страны');
+
+// stats
+const nTeams=new Set(PLAYERS.map(p=>p.t)).size;
+const nClubs=new Set(PLAYERS.map(p=>p.c)).size;
+const nLeagues=new Set(PLAYERS.map(p=>p.l)).size;
+$('stats').innerHTML=[
+  ['v',PLAYERS.length,'игроков'],['v',nTeams,'сборных'],['v',nClubs,'клубов'],['v',nLeagues,'лиг']
+].map(([,v,k])=>`<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+
+function getFilters(){
+  return {q:$('q').value.trim().toLowerCase(),t:$('fTeam').value,p:$('fPos').value,l:$('fLeague').value,cc:$('fCC').value};
+}
+function apply(){
+  const f=getFilters();
+  let r=PLAYERS.filter(p=>
+    (!f.t||p.t===f.t)&&(!f.p||p.p===f.p)&&(!f.l||p.l===f.l)&&(!f.cc||p.cc===f.cc)&&
+    (!f.q||p.n.toLowerCase().includes(f.q)||p.c.toLowerCase().includes(f.q))
+  );
+  r.sort((a,b)=>{
+    let x,y;
+    if(sortKey==='p'){x=POS_ORDER[a.p];y=POS_ORDER[b.p];}
+    else{x=a[sortKey];y=b[sortKey];}
+    if(x<y)return -1*sortDir; if(x>y)return 1*sortDir;
+    // secondary sort by team then pos
+    if(a.t!==b.t)return a.t.localeCompare(b.t,'ru');
+    return POS_ORDER[a.p]-POS_ORDER[b.p];
+  });
+  render(r,f);
+}
+function render(r,f){
+  $('cnt').textContent=r.length;
+  const tb=$('rows');
+  if(!r.length){tb.innerHTML='';$('empty').style.display='block';$('more').style.display='none';renderChips(f);return;}
+  $('empty').style.display='none';
+  const slice=r.slice(0,shown);
+  tb.innerHTML=slice.map(p=>`<tr>
+    <td class="pname">${p.n}</td>
+    <td class="flag">${p.t}</td>
+    <td class="grp hide">${p.g}</td>
+    <td><span class="pos ${POS_CLASS[p.p]||''}">${p.p}</span></td>
+    <td>${p.c}</td>
+    <td class="hide">${p.cc}</td>
+    <td class="hide">${p.l}</td>
+  </tr>`).join('');
+  $('more').style.display=r.length>shown?'block':'none';
+  renderChips(f);
+}
+function renderChips(f){
+  const items=[];
+  if(f.t)items.push(['Сборная',f.t,'fTeam']);
+  if(f.p)items.push(['Позиция',f.p,'fPos']);
+  if(f.l)items.push(['Лига',f.l,'fLeague']);
+  if(f.cc)items.push(['Страна',f.cc,'fCC']);
+  if(f.q)items.push(['Поиск',f.q,'q']);
+  $('chips').innerHTML=items.map(([k,v,id])=>
+    `<span class="chip">${k}: <b>${v}</b><span data-clear="${id}">×</span></span>`).join('');
+  document.querySelectorAll('[data-clear]').forEach(el=>el.onclick=()=>{
+    const t=$(el.dataset.clear); t.value=''; shown=PAGE; apply();
+  });
+}
+
+['q','fTeam','fPos','fLeague','fCC'].forEach(id=>{
+  $(id).addEventListener('input',()=>{shown=PAGE;apply();});
+});
+$('reset').onclick=()=>{['q','fTeam','fPos','fLeague','fCC'].forEach(id=>$(id).value='');shown=PAGE;apply();};
+$('moreBtn').onclick=()=>{shown+=PAGE;apply();};
+document.querySelectorAll('thead th').forEach(th=>{
+  th.onclick=()=>{const k=th.dataset.k; if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=1;}
+    document.querySelectorAll('thead th .ar').forEach(a=>a.remove());
+    const ar=document.createElement('span');ar.className='ar';ar.textContent=sortDir>0?'▲':'▼';th.appendChild(ar);
+    apply();};
+});
+apply();
+</script>
+</body>
+</html>
